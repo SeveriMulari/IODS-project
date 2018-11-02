@@ -1,0 +1,4 @@
+# output: github_document
+
+# looking forward to complete this course, it seems that this course is very usefull for me. 
+# Here is a link to my course diary [link] (https://severimulari.github.io/IODS-project/)
