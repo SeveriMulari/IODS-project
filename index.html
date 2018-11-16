@@ -245,6 +245,102 @@ surf -0.5861 0.8014 -0.731 0.46563<br />
 <h1>diagnostic plots</h1>
 <p>par(mfrow = c(2,2)) (4 graphics to the same plot) plot(my_model2, which = c(1,2,5)) (printing plots)</p>
 <hr />
+<table>
+<tbody>
+<tr class="odd">
+<td>title: “chapter3.rmd”</td>
+</tr>
+<tr class="even">
+<td>author: “SM”</td>
+</tr>
+<tr class="odd">
+<td>date: “16 November 2018”</td>
+</tr>
+<tr class="even">
+<td>output: html_document</td>
+</tr>
+</tbody>
+</table>
+<pre><code>data &lt;- read.table(&quot;C:\\Users\\sever\\OneDrive\\Desktop\\IODS-project\\data\\create_alc&quot;, header = TRUE)
+data
+
+dim(data)
+colnames(data)
+
+# The data includes 382 observations and 35 variables. The data includes information on student achievement in secondary education in two Portuguese schools.There are 35 different variables such as school, sex, age, adress etc.
+
+summary(data)
+
+# Now lets study about relationships between high/low alcohol consumption and these four variables: (1) age, (2) sex, (3) guardian and (4) health. My hypothesis is that alcohol consumption increases with older age, male sex, father as a single parent and if health situation is poor.
+
+summary(data$age)
+summary(data$sex)
+summary(data$guardian)
+summary(data$health)
+hist(data$age)
+hist(data$health)
+
+install.packages(&quot;gmodels&quot;)
+library(gmodels)
+
+g1 &lt;- ggplot(alc, aes(x = high_use, y = G3, col = sex))
+g1 + geom_boxplot() + ylab(&quot;grade&quot;)
+g2 &lt;- ggplot(alc, aes(x = high_use, y = absences, col = sex))
+g2 + geom_boxplot() + ggtitle(&quot;Student absences by alcohol consumption and sex&quot;)
+
+CrossTable(data$age, data$high_use)
+#As you can see, 22-26% of 15-16 years old had high alcohol use, whereas 32-35% of 17-18 year olds had high alcohol use, supporting my hypothesis! Students aged 19-22 were too few in number, thus not interpreted
+CrossTable(data$sex, data$high_use)
+# 21% of female and 39% of male had high alcohol consumption. Supports my hypothesis also!
+CrossTable(data$guardian, data$high_use)
+#32% of students had high alcohol consumption when guarded by father and 28% of students had high alcohol consumption when guarded by mother. 44% of students whose guardian were &quot;other&quot; had high alcohol consumption!
+CrossTable(data$health, data$high_use)
+#Current health didnt seem to affect so much to alcohol consumption. Students who had health as good as 5 had most high alcohol consumption. But second highest high alcohol consumption percentages were in students whose health was graded as 2! This was not supportin my hypothesis!
+
+model &lt;- glm(high_use ~ age + sex + guardian + health, data = data)
+model
+summary(model)
+# Age and sexM had p-values &lt; 0.05 and have thus statistical significance. 
+
+OR &lt;- coef(model) %&gt;% exp
+CI &lt;- confint(model) %&gt;% exp
+cbind(OR, CI)
+
+                      OR     2.5 %   97.5 %
+(Intercept)    0.5862256 0.3004817 1.143699
+age            1.0451525 1.0050146 1.086893
+sexM           1.1911219 1.0876562 1.304430
+guardianmother 0.9558301 0.8591924 1.063337
+guardianother  1.0741618 0.8426390 1.369298
+health         1.0127470 0.9802931 1.046275
+
+# Male sex increases probability of high alcohol use OR=1.19 and 95%CI = 1.087 - 1.30. Also age increases probability of high alcohol consumption OR = 1.045 and 95%CI = 1.005 - 1.086. The 95%CI:s of other variables overlapped 1.
+
+probabilities &lt;- predict(model, type = &quot;response&quot;)
+data &lt;- mutate(data, probability = probabilities)
+data &lt;- mutate(data, prediction = probability &gt; 0.5)
+select(data, age, sex, high_use, probability, prediction) %&gt;% tail(10)
+table(high_use = data$high_use, prediction = data$prediction)
+
+# 2x2 cross tabulation: 
+
+        prediction
+high_use FALSE TRUE
+   FALSE   266    2
+   TRUE    110    4
+   
+# As you can see, the sensitivity of my model is 3.57% and the specifity of my model is 99.26%. So sensitivity isn't great... The model has extremely poor performance in predicting high alcohol use.
+
+# THE END
+
+
+
+
+
+
+
+</code></pre>
+<hr />
 </div>
 
 
