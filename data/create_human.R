@@ -1,4 +1,4 @@
-#Week 4; data wrangling assessment:
+#Week 4; data wrangling assessment: (Week 5 assessment also, see below!)
 
 # 1) File created
 # 2) Reading data into R:
@@ -47,4 +47,58 @@ dim(hd_gii)
 human <- hd_gii
 write.table(human, file = "human")
 
-#THE END.
+dim(human)
+str(human)
+
+# So there is 195 observations and 19 variables in human data. Human data includes data from health and education.
+
+install.packages("stringr")
+library(stringr)
+
+#Transfering GNI variable to numeric
+str(human$GNIpc)
+str_replace(human$GNIpc, pattern=",", replace ="") %>% as.numeric
+
+#Now lets exclude some unneeded variables
+
+install.packages("dplyr")
+library(dplyr)
+
+keep <- c("country", "sex_secondary", "sex_work", "exp_educ", "exp_life", "GNIpc", "mortality_maternal", "birth_adolescent", "female_parliament")
+human <- select(human, one_of(keep))
+
+#removing missing values
+
+complete.cases(human)
+
+data.frame(human[-1], comp = complete.cases(human))
+
+human_ <- filter(human, complete.cases(human))
+
+# removing observations which are related to regions instead of countries
+tail(human, 10)
+
+last <- nrow(human_) - 7
+human_ <- human_[1:last, ]
+
+#adding coutries as row names
+rownames(human_) <- human_$Country
+
+
+install.packages("dplyr")
+library(dplyr)
+
+#removing the country variable
+
+rownames(human_) <- human_$country
+human_ <- select(human_, -country)
+
+#Overwriting and saving
+
+human <- human_
+write.table(human, file = "human")
+
+
+
+
+#THE END of week 5.
