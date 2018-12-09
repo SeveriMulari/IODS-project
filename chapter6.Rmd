@@ -1,0 +1,261 @@
+---
+title: "chapter6"
+author: "SM"
+date: "9 December 2018"
+output: html_document
+---
+
+```{}
+#analysis exercise for week 6, let's take a look how it seems!
+
+# Let's start by loading the two datasets that were created in the wrangling phase:
+
+BPRSL <- read.table("C:\\Users\\sever\\OneDrive\\Desktop\\IODS-project\\data\\BPRSL")
+RATSL <- read.table("C:\\Users\\sever\\OneDrive\\Desktop\\IODS-project\\data\\RATSL")
+
+# 1) Lets now get to implementing the analyses of Chapter 8 of MABS, using the RATS(L) data:
+
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+
+#Had to re-convert the following variables to factors to make the subsequent code work
+
+BPRSL$treatment <- factor(BPRSL$treatment)
+BPRSL$subject <- factor(BPRSL$subject)
+
+RATSL$ID <- factor(RATSL$ID)
+RATSL$Group <- factor(RATSL$Group)
+
+ggplot(RATSL, aes(x = Time, y = rats, linetype = ID)) +
+  geom_line() +
+  scale_linetype_manual(values = rep(1:10, times=4)) +
+  facet_grid(. ~ Group, labeller = label_both) +
+  theme(legend.position = "none") + 
+  scale_y_continuous(limits = c(min(RATSL$rats), max(RATSL$rats)))
+
+#The graphs produced here demonstrate considerable differences in the rats' weight (g) between the three groups, as well as a marked tracking effect, in which the subjects whose weight is high initially tend to have a higher weight at the end of the period of investigation as well.
+
+#The phenomenon of tracking, described above, is more readily observable when we plot the standardized values of each observation, so let's:
+
+RATSL <- RATSL %>%
+  group_by(Time) %>%
+  mutate(stdrats = (rats - mean(rats))/sd(rats) ) %>%
+  ungroup()
+
+ggplot(RATSL, aes(x = Time, y = stdrats, linetype = ID)) +
+  geom_line() +
+  scale_linetype_manual(values = rep(1:10, times=4)) +
+  facet_grid(. ~ Group, labeller = label_both) +
+  scale_y_continuous(name = "standardized rats")
+
+#This is marvelously demonstrative! Although there seems to be an overall tracking effect, some individual subjects seem to be deviating from this trend. Let's move on to examining average profiles:
+
+n <- RATSL$Time %>% unique() %>% length()
+
+RATSS <- RATSL %>%
+  group_by(Group, Time) %>%
+  summarise( mean = mean(rats), se = sd(rats)/sqrt(n) ) %>%
+  ungroup()
+
+ggplot(RATSS, aes(x = Time, y = mean, linetype = Group, shape = Group)) +
+  geom_line() +
+  scale_linetype_manual(values = c(1,2,3)) +
+  geom_point(size=3) +
+  scale_shape_manual(values = c(1,2,3)) +
+  geom_errorbar(aes(ymin = mean - se, ymax = mean + se, linetype="1"), width=0.3) +
+  theme(legend.position = c(0.8,0.8)) +
+  scale_y_continuous(name = "mean(rats) +/- se(rats)")
+
+#This seems quite a bit more clear to view, and is thus more informative! No apparent overlapping in the average profiles is observed.
+
+#let's produce side-by-side boxplots:
+
+RATSL8S <- RATSL %>%
+  filter(Time > 0) %>%
+  group_by(Group, ID) %>%
+  summarise( mean=mean(rats) ) %>%
+  ungroup()
+
+ggplot(RATSL8S, aes(x = Group, y = mean)) +
+  geom_boxplot() +
+  stat_summary(fun.y = "mean", geom = "point", shape=23, size=4, fill = "white") +
+  scale_y_continuous(name = "mean(rats), Time 1-50")
+
+# 2) Lets now get to implementing the analyses of Chapter 9 of MABS, using the BPRS(L) data:
+
+#Starting with a basic plot of the data:
+
+ggplot(BPRSL, aes(x = week, y = bprs, group = subject)) +
+  geom_line()
+
+#As is apparrent, the plot looks rather "messy" and is of little use. Let's move on to create a regression model:
+
+BPRS_reg <- lm(bprs ~ week + treatment, data = BPRSL)
+summary(BPRS_reg)
+
+Call:
+lm(formula = bprs ~ week + treatment, data = BPRSL)
+
+Residuals:
+    Min      1Q  Median      3Q     Max 
+-22.454  -8.965  -3.196   7.002  50.244 
+
+Coefficients:
+            Estimate Std. Error t value Pr(>|t|)    
+(Intercept)  46.4539     1.3670  33.982   <2e-16 ***
+week         -2.2704     0.2524  -8.995   <2e-16 ***
+treatment2    0.5722     1.3034   0.439    0.661    
+---
+Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+
+Residual standard error: 12.37 on 357 degrees of freedom
+Multiple R-squared:  0.1851, Adjusted R-squared:  0.1806 
+F-statistic: 40.55 on 2 and 357 DF,  p-value: < 2.2e-16
+
+#As we can see, in this model, the variable "week" is significant but the "treatment" variable is not.
+
+#Let's now create a random intercept model, using the variable "subject" as a random effect:
+
+library(lme4)
+
+BPRS_ref <- lmer(bprs ~ week + treatment + (1 | subject), data = BPRSL, REML = FALSE)
+summary(BPRS_ref)
+
+Linear mixed model fit by maximum likelihood  ['lmerMod']
+Formula: bprs ~ week + treatment + (1 | subject)
+   Data: BPRSL
+
+     AIC      BIC   logLik deviance df.resid 
+  2748.7   2768.1  -1369.4   2738.7      355 
+
+Scaled residuals: 
+    Min      1Q  Median      3Q     Max 
+-3.0481 -0.6749 -0.1361  0.4813  3.4855 
+
+Random effects:
+ Groups   Name        Variance Std.Dev.
+ subject  (Intercept)  47.41    6.885  
+ Residual             104.21   10.208  
+Number of obs: 360, groups:  subject, 20
+
+Fixed effects:
+            Estimate Std. Error t value
+(Intercept)  46.4539     1.9090  24.334
+week         -2.2704     0.2084 -10.896
+treatment2    0.5722     1.0761   0.532
+
+Correlation of Fixed Effects:
+           (Intr) week  
+week       -0.437       
+treatment2 -0.282  0.000
+
+#now let's create a random intercept and random slope model:
+
+BPRS_ref1 <- lmer(bprs ~ week + treatment + (week | subject), data = BPRSL, REML = FALSE)
+summary(BPRS_ref1)
+
+Linear mixed model fit by maximum likelihood  ['lmerMod']
+Formula: bprs ~ week + treatment + (week | subject)
+   Data: BPRSL
+
+     AIC      BIC   logLik deviance df.resid 
+  2745.4   2772.6  -1365.7   2731.4      353 
+
+Scaled residuals: 
+    Min      1Q  Median      3Q     Max 
+-2.8919 -0.6194 -0.0691  0.5531  3.7976 
+
+Random effects:
+ Groups   Name        Variance Std.Dev. Corr 
+ subject  (Intercept) 64.8202  8.0511        
+          week         0.9608  0.9802   -0.51
+ Residual             97.4307  9.8707        
+Number of obs: 360, groups:  subject, 20
+
+Fixed effects:
+            Estimate Std. Error t value
+(Intercept)  46.4539     2.1052  22.066
+week         -2.2704     0.2977  -7.626
+treatment2    0.5722     1.0405   0.550
+
+Correlation of Fixed Effects:
+           (Intr) week  
+week       -0.582       
+treatment2 -0.247  0.000
+
+#Let's perform an ANOVA on the two models:
+
+anova(BPRS_ref1, BPRS_ref)
+
+#The p-value of 0.026 suggests a good fit against the comparison model.
+
+#To top this all off, let's now create a random intercept and random slope model with interaction:
+
+BPRS_ref2 <- lmer(bprs ~ week * treatment + (week | subject), data = BPRSL, REML = FALSE)
+summary(BPRS_ref2)
+
+Linear mixed model fit by maximum likelihood  ['lmerMod']
+Formula: bprs ~ week * treatment + (week | subject)
+   Data: BPRSL
+
+     AIC      BIC   logLik deviance df.resid 
+  2744.3   2775.4  -1364.1   2728.3      352 
+
+Scaled residuals: 
+    Min      1Q  Median      3Q     Max 
+-3.0512 -0.6271 -0.0767  0.5288  3.9260 
+
+Random effects:
+ Groups   Name        Variance Std.Dev. Corr 
+ subject  (Intercept) 65.0016  8.0624        
+          week         0.9688  0.9843   -0.51
+ Residual             96.4699  9.8219        
+Number of obs: 360, groups:  subject, 20
+
+Fixed effects:
+                Estimate Std. Error t value
+(Intercept)      47.8856     2.2522  21.262
+week             -2.6283     0.3589  -7.323
+treatment2       -2.2911     1.9090  -1.200
+week:treatment2   0.7158     0.4010   1.785
+
+Correlation of Fixed Effects:
+            (Intr) week   trtmn2
+week        -0.650              
+treatment2  -0.424  0.469       
+wek:trtmnt2  0.356 -0.559 -0.840
+
+#ANOVA:
+
+anova(BPRS_ref2, BPRS_ref1)
+
+#A p-value of 0.07 is observed. Creating a vector of fitted values:
+
+Fitted <- fitted(BPRS_ref2)
+
+#Creating a new column (Fitted) to BPRSL:
+
+BPRSL <- BPRSL %>%
+  mutate(Fitted)
+
+#Plotting BPRSL:
+
+ggplot(BPRSL, aes(x = week, y = Fitted, group = subject)) +
+  geom_line(aes(linetype = "treatment")) +
+  scale_x_continuous(name = "Time (weeks)", breaks = seq(0, 10, 3)) +
+  scale_y_continuous(name = "Fitted bprs") +
+  theme(legend.position = "top")
+
+#The graph suggests that bprs declines over time.
+
+
+#THE END.
+
+
+
+
+
+
+```
+
